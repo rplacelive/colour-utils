@@ -95,6 +95,10 @@
 			background-color: #d3d3d32b;
 			border-radius: 4px;
 		}
+
+		.code{
+			font-family: monospace; font-weight: bold;
+		}
 	</style>
 </head>
 <body>
@@ -108,10 +112,10 @@
 		<div class="section-content">
 			<label for="paletteFileInput">Image file:</label>
 			<input type="file" id="paletteFileInput">
-			<label for="paletteSimilarityRange">Colour similarity margin:</label>
-			<input type="range" id="paletteSimilarityRange">
+			<label for="paletteSimilarityRange">Colour similarity margin: <span>25%</span></label>
+			<input type="range" id="paletteSimilarityRange" min="0" max="0.5" step="0.01">
 			<button type="button" id="paletteDoneButton">Extract colour palette</button>
-			<div id="imageResult"></div>
+			<div id="imageResult" class="code"></div>
 		</div>
 	</details>
 	<details>
@@ -142,10 +146,14 @@
 					<input type="text" id="canvasMetadataInput">
 				</fieldset>
 				<fieldset class="section-content" id="canvasDetailsSection">
-					<label for="canvasWidthInput">Canvas width:</label>
-					<input type="text" id="canvasWidthInput">
-					<label for="canvasHeightInput">Canvas height:</label>
-					<input type="text" id="canvasHeightInput">
+					<span>
+						<label for="canvasWidthInput">Canvas width:</label>
+						<input type="number" id="canvasWidthInput">
+					</span>
+					<span>
+						<label for="canvasHeightInput">Canvas height:</label>
+						<input type="number" id="canvasHeightInput">
+					</span>
 					<label for="canvasPaletteInput">Palette (comma-separated colors or JSON array):</label>
 					<input type="text" id="canvasPaletteInput">
 				</fieldset>	
@@ -162,10 +170,18 @@
 		</summary>
 		<div class="section-content">
 			<label for="imagePaletteInput">Palette (list of hex or integer colours separated by commas OR a JSON array):</label>
-			<input type="text" id="imagePaletteInput">
-			<label for="imageCanvasFileInput">Canvas file:</label>
+			<input type="text" id="imagePaletteInput" class="code">
+			<label for="imageCanvasFileInput">Image file:</label>
 			<input type="file" id="imageCanvasFileInput">
-			<button type="button" id="imageDoneButton" disabled="">Generate canvas file</button>
+			<span>
+				<label for="canvasGenWidthInput">Width:</label>
+				<input type="number" id="canvasGenWidthInput">
+			</span>
+			<span>
+				<label for="canvasGenHeightInput">Height:</label>
+				<input type="number" id="canvasGenHeightInput">
+			</span>
+			<button type="button" id="imageDoneButton">Generate canvas file</button>
 		</div>
 	</details>
 	<details>
@@ -175,9 +191,31 @@
 		</summary>
 		<div class="section-content">
 			<label for="hexInput">Colours (list of hex or separated by commas OR a JSON array):</label>
-			<input type="text" id="hexInput">
+			<input type="text" id="hexInput" class="code">
 			<button type="button" id="hexDoneButton">Convert to integer colours</button>
-			<div id="hexResult"></div>
+			<div id="hexResult" class="code"></div>
+		</div>
+	</details>
+	<details>
+		<summary>
+			<h4 class="summary-title">Lineafy</h4>
+			<strong class="summary-description">Tints a list of colours to lie on a given gradient</strong>
+		</summary>
+		<div class="section-content">
+			<label for="hexInput">Colour(s) (list of hex or separated by commas OR a JSON array):</label>
+			<input type="text" id="lineafyInput" class="code">
+			<span>
+				R1=<input type="number" id="lineafyR1" class="code" value="0">
+				G1=<input type="number" id="lineafyG1" class="code" value="0">
+				B1=<input type="number" id="lineafyB1" class="code" value="0">
+			</span>
+			<span>
+				R2=<input type="number" id="lineafyR2" class="code" value="1">
+				G2=<input type="number" id="lineafyG2" class="code" value="0">
+				B2=<input type="number" id="lineafyB2" class="code" value="0">
+			</span>
+			<button type="button" id="lineafyDoneButton">Lineafy!</button>
+			<div id="lineafyResult" class="code"></div>
 		</div>
 	</details>
 	<!--<details open>
@@ -189,58 +227,33 @@
 	<p>© Zekiah-A | rplace.live Colour Utils <a href="https://github.com/rplacetk/colour-utils">See Readme</a></p>
 </body>
 <script type="module">
-	import { image2Palette, canvasFile2Image, boardToPng } from "./index.m.js";
+	import { image2Palette, canvasFile2Image, imageFile2Canvas, boardToPng, stringToIntColor, intColorToString, bswap, download } from "./index.js"
 	const $ = document.querySelector.bind(document)
 
 	function listLikeToArray(input) {
 		let array = []
 		let jsonInput = null
-		try {
-			jsonInput = JSON.parse(input)
-		}
-		catch(e) { }
-		
-		if (jsonInput && Array.isArray(jsonInput)) {
-			array = jsonInput
-		}
-		else {
-			array = input.split(",")
-		}
-		
-		return array.map(value => (typeof value === "string" && value.trim(), value))
+		try{ jsonInput = JSON.parse(input) }catch{}
+
+		array = Array.isArray(jsonInput) ? jsonInput : input.split(",")
+		return array.map(value => typeof value === "string" ? value.trim() : value.toString())
 	}
 	
-	function listLikeToIntArray(input) {
-		let strArray = listLikeToArray(input)
-		
-		const intArray = []
-		for (let item of strArray) {
-			if (typeof item === "string") {
-				item = item.trim()
-			}
-			
-			const integer = parseInt(item)
-			if (!Number.isNaN(integer)) {
-				intArray.push(integer)
-			}
-		}
-		return intArray
+	const paletteSimilarityRange = $('#paletteSimilarityRange')
+	const paletteSimilarityLabel = $('[for=paletteSimilarityRange] > span')
+	let margin = 0.25
+	paletteSimilarityRange.oninput = () => {
+		margin = parseFloat(paletteSimilarityRange.value)
+		paletteSimilarityLabel.textContent = (margin*100).toFixed(0) + '%'
 	}
-	
+
 	$("#paletteDoneButton").addEventListener("click", async (event) => {
 		const file = $("#paletteFileInput").files[0]
-		const margin = parseFloat($("#paletteSimilarityRange").value) / 100
-		
-		if (file) {
-			try {
-				const colours = await image2Palette(file, margin)
-				console.log(colours)
-				imageResult.textContent = colours
-			}
-			catch (error) {
-				console.error(error)
-			}
-		}
+		if(!file) return
+
+		const colors = await image2Palette(file, margin)
+		console.log(colors)
+		$('#imageResult').textContent = `(${colors.length}) ` + colors.join(', ')
 	})
 
 	function toggleSections(checkbox, section1, section2) {
@@ -282,7 +295,8 @@
 			else {
 				const width = $("#canvasWidthInput").value
 				const height = $("#canvasHeightInput").value
-				const palette = listLikeToIntArray($("#canvasPaletteInput").value)
+				// Rplace colors 0xRRGGBBAA 🥀
+				const palette = listLikeToArray($("#canvasPaletteInput").value).map(col => bswap(stringToIntColor(col))>>>0)
 				metadata = { width, height, palette }
 			}
 			imageBlob = await canvas2Image(file, metadata)
@@ -293,22 +307,50 @@
 		canvasResultLink.href = imageUrl
 		canvasResultLink.textContent = "Download " + imageName
 	})
+	let imageToGen = null
+	$('#imageCanvasFileInput').onchange = async function(){
+		if(!this.files[0]){
+			imageToGen = null
+			return
+		}
+		imageToGen = await createImageBitmap(this.files[0])
 
+		canvasGenWidthInput.value = imageToGen.width
+		canvasGenHeightInput.value = imageToGen.height
+	}
+	const imagePaletteInput = $('#imagePaletteInput'), hexInput = $('#hexInput')
 	$("#imageDoneButton").addEventListener("click", async (event) => {
-		
+		const intArray = listLikeToArray(imagePaletteInput.value).map(stringToIntColor)
+		if(!imageToGen) return
+		const width = canvasGenWidthInput.value>>>0, height = canvasGenHeightInput.value>>>0
+		imageFile2Canvas(imageToGen, intArray, width, height)
+			.then(arr => download(new Blob([arr], {type: '@file/octet-stream'}), 'place'))
 	})
 	
-	$("#hexDoneButton").addEventListener("click", async (event) => {
-		const hexArray = listLikeToArray(hexInput.value)
-		const intArray = []
-		for (let hexValue of hexArray) {
-			if (hexValue.startsWith("#")) {
-				hexValue = hexValue.slice(1)
-			}
-			const intValue = parseInt(hexValue, 16)
-			intArray.push(intValue)
+	$("#hexDoneButton").addEventListener("click", (event) => {
+		// Rplace uses 0xRRGGBBAA 🥀
+		$('#hexResult').textContent = listLikeToArray(hexInput.value).map(col => bswap(stringToIntColor(col))>>>0).join(", ")
+	})
+	$('#lineafyDoneButton').addEventListener('click', () => {
+		const intArray = listLikeToArray($('#lineafyInput').value).map(stringToIntColor)
+		const r1 = $('#lineafyR1').value * 255 || 0
+		const g1 = $('#lineafyG1').value * 255 || 0
+		const b1 = $('#lineafyB1').value * 255 || 0
+		const rd = ($('#lineafyR2').value - r1) || 0
+		const gd = ($('#lineafyG2').value - g1) || 0
+		const bd = ($('#lineafyB2').value - b1) || 0
+		const coeff = 1/(rd*rd+gd*gd+bd*bd)
+		const colors = []
+		for(const col of intArray){
+			let r = col&255, g = (col>>8)&255, b = (col>>16)&255, a = col>>>24
+			r -= r1; g -= g1; b -= b1
+			const fit = (r*rd+g*gd+b*bd)*coeff
+			r = Math.max(0, Math.min(Math.round(fit*rd + r1), 255))
+			g = Math.max(0, Math.min(Math.round(fit*gd + g1), 255))
+			b = Math.max(0, Math.min(Math.round(fit*bd + b1), 255))
+			colors.push(intColorToString(r|g<<8|b<<16|a<<24))
 		}
-		hexResult.textContent = intArray.join(", ")
+		$('#lineafyResult').textContent = colors.join(', ')
 	})
 </script>
 </html>
