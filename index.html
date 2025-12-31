@@ -192,6 +192,10 @@
 		<div class="section-content">
 			<label for="hexInput">Colours (list of hex or separated by commas OR a JSON array):</label>
 			<input type="text" id="hexInput" class="code">
+			<span>
+				<input type="checkbox" id="bswap" checked>
+				<label for="bswap">Rplace (0xRRGGBBAA) format</label>
+			</span>
 			<button type="button" id="hexDoneButton">Convert to integer colours</button>
 			<div id="hexResult" class="code"></div>
 		</div>
@@ -329,7 +333,8 @@
 	
 	$("#hexDoneButton").addEventListener("click", (event) => {
 		// Rplace uses 0xRRGGBBAA 🥀
-		$('#hexResult').textContent = listLikeToArray(hexInput.value).map(col => bswap(stringToIntColor(col))>>>0).join(", ")
+		const shouldBswap = $('#bswap').checked
+		$('#hexResult').textContent = listLikeToArray(hexInput.value).map(col => shouldBswap ? bswap(stringToIntColor(col))>>>0 : stringToIntColor(col)>>>0).join(", ")
 	})
 	$('#lineafyDoneButton').addEventListener('click', () => {
 		const intArray = listLikeToArray($('#lineafyInput').value).map(stringToIntColor)
