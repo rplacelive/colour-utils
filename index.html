@@ -303,7 +303,7 @@
 				const palette = listLikeToArray($("#canvasPaletteInput").value).map(col => bswap(stringToIntColor(col))>>>0)
 				metadata = { width, height, palette }
 			}
-			imageBlob = await canvas2Image(file, metadata)
+			imageBlob = await canvasFile2Image(file, metadata)
 		}
 		const imageUrl = URL.createObjectURL(imageBlob)
 		canvasResultImg.src = imageUrl
