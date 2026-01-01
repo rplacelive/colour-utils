@@ -294,7 +294,7 @@
 			let metadata = null
 
 			if ($("#canvasMetadataCheckbox").checked) {
-				metadata = $("#canvasMetadataInput").value
+				try{ metadata = $("#canvasMetadataInput").value }catch{}
 			}
 			else {
 				const width = $("#canvasWidthInput").value
